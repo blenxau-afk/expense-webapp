@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <!-- viewport: щоб сторінка правильно масштабувалась на телефоні -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Мої витрати</title>
+
+  <!-- Офіційний скрипт Telegram: дає доступ до імені користувача, кнопок, тем тощо -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    /* ===== Кольори в одному місці: змінюєш тут — змінюється весь дизайн ===== */
+    :root {
+      --bg: #F3F5F2;          /* фон сторінки */
+      --card: #FFFFFF;        /* білі картки */
+      --text: #14211C;        /* основний текст */
+      --muted: #6B7A73;       /* сірий текст */
+      --accent: #1FA97A;      /* головний зелений */
+      --accent-dark: #127A57; /* темніший зелений для градієнта */
+      --border: #E3E8E4;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px 16px 110px; /* знизу місце під нижнє меню */
+    }
+
+    /* ===== Шапка: привітання + перемикач місяця ===== */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .hello { font-size: 14px; color: var(--muted); }
+    .title { font-size: 26px; font-weight: 800; }
+
+    .month-switch {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 4px;
+    }
+    .month-switch button {
+      border: none;
+      background: var(--bg);
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .month-label { text-align: center; min-width: 84px; }
+    .month-label .m { font-weight: 700; font-size: 14px; }
+    .month-label .y { font-size: 11px; color: var(--muted); }
+
+    /* ===== Головна картка з сумою за місяць ===== */
+    .main-card {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: #fff;
+      border-radius: 24px;
+      padding: 22px;
+      margin-bottom: 14px;
+    }
+    .main-card .label { font-size: 14px; opacity: 0.85; }
+    .main-card .total { font-size: 38px; font-weight: 800; margin: 6px 0 4px; }
+    .main-card .hint { font-size: 13px; opacity: 0.8; }
+
+    /* ===== Сітка 2x2 з маленькими картками ===== */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+    }
+    .stat .label { font-size: 12px; color: var(--muted); }
+    .stat .value { font-size: 18px; font-weight: 700; margin-top: 4px; }
+
+    /* ===== Блок "останні витрати" ===== */
+    .section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 16px;
+    }
+    .section h2 { font-size: 16px; margin-bottom: 8px; }
+    .empty { font-size: 14px; color: var(--muted); }
+
+    /* ===== Нижнє меню ===== */
+    .nav {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 10px 8px 22px;
+    }
+    .nav-item {
+      background: none;
+      border: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      width: 60px;
+    }
+    .nav-item .icon { font-size: 20px; }
+    .nav-item.active { color: var(--accent); font-weight: 700; }
+
+    /* Кругла кнопка "+" по центру */
+    .add-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 30px;
+      margin-top: -30px; /* піднімаємо кнопку над меню */
+      box-shadow: 0 6px 16px rgba(31, 169, 122, 0.4);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Шапка -->
+  <div class="header">
+    <div>
+      <div class="hello" id="hello">Привіт!</div>
+      <div class="title">Мої витрати</div>
+    </div>
+    <div class="month-switch">
+      <button id="prevMonth">‹</button>
+      <div class="month-label">
+        <div class="m" id="monthName">—</div>
+        <div class="y" id="yearName">—</div>
+      </div>
+      <button id="nextMonth">›</button>
+    </div>
+  </div>
+
+  <!-- Головна картка -->
+  <div class="main-card">
+    <div class="label">Витрачено за місяць</div>
+    <div class="total">0,00 ₴</div>
+    <div class="hint">Поки що це демо — реальні дані підключимо далі</div>
+  </div>
+
+  <!-- 4 маленькі картки -->
+  <div class="grid">
+    <div class="stat"><div class="label">Сьогодні</div><div class="value">0,00 ₴</div></div>
+    <div class="stat"><div class="label">В середньому / день</div><div class="value">0,00 ₴</div></div>
+    <div class="stat"><div class="label">Доходи</div><div class="value">0,00 ₴</div></div>
+    <div class="stat"><div class="label">Залишок</div><div class="value">0,00 ₴</div></div>
+  </div>
+
+  <!-- Останні витрати -->
+  <div class="section">
+    <h2>Останні витрати</h2>
+    <div class="empty">Тут з'являться твої витрати з бота.</div>
+  </div>
+
+  <!-- Нижнє меню -->
+  <nav class="nav">
+    <button class="nav-item active"><span class="icon">🏠</span>Головна</button>
+    <button class="nav-item" data-soon="Історія"><span class="icon">📋</span>Історія</button>
+    <button class="add-btn" id="addBtn">+</button>
+    <button class="nav-item" data-soon="Статистика"><span class="icon">📊</span>Статистика</button>
+    <button class="nav-item" data-soon="Налаштування"><span class="icon">⚙️</span>Ще</button>
+  </nav>
+
+  <script>
+    // Об'єкт Telegram WebApp. Поза Telegram (просто в браузері) теж існує, але без даних користувача
+    const tg = window.Telegram.WebApp;
+    tg.ready();   // кажемо Telegram, що сторінка завантажилась
+    tg.expand();  // розгортаємо апку на весь екран
+
+    // Ім'я користувача з Telegram. "?." — якщо даних немає, не буде помилки
+    const user = tg.initDataUnsafe?.user;
+    if (user?.first_name) {
+      document.getElementById("hello").textContent = `Привіт, ${user.first_name}!`;
+    }
+
+    // Показ повідомлення: в Telegram — гарне вікно, в браузері — звичайний alert
+    function notify(text) {
+      if (tg.initData) {
+        tg.showAlert(text);
+      } else {
+        alert(text);
+      }
+    }
+
+    // ===== Перемикач місяців (поки змінює тільки підпис) =====
+    const months = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень",
+                    "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
+    let current = new Date(); // сьогоднішня дата
+
+    function renderMonth() {
+      document.getElementById("monthName").textContent = months[current.getMonth()];
+      document.getElementById("yearName").textContent = current.getFullYear();
+    }
+
+    document.getElementById("prevMonth").onclick = () => {
+      current.setMonth(current.getMonth() - 1);
+      renderMonth();
+    };
+    document.getElementById("nextMonth").onclick = () => {
+      current.setMonth(current.getMonth() + 1);
+      renderMonth();
+    };
+    renderMonth();
+
+    // ===== Кнопки, які ще не працюють =====
+    document.getElementById("addBtn").onclick = () => {
+      notify("Скоро тут буде додавання витрат 🙂");
+    };
+    document.querySelectorAll("[data-soon]").forEach((btn) => {
+      btn.onclick = () => notify(`Розділ «${btn.dataset.soon}» скоро буде`);
+    });
+  </script>
+</body>
+</html>
