@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Мої витрати</title>
 
-  <!-- Офіційний скрипт Telegram: дає доступ до імені користувача, кнопок, тем тощо -->
+  <!-- Офіційний скрипт Telegram: дає доступ до імені користувача, initData, кнопок тощо -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
@@ -19,6 +19,7 @@
       --accent: #1FA97A;      /* головний зелений */
       --accent-dark: #127A57; /* темніший зелений для градієнта */
       --border: #E3E8E4;
+      --danger: #D9534F;      /* червоний для помилок */
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -73,7 +74,7 @@
     }
     .main-card .label { font-size: 14px; opacity: 0.85; }
     .main-card .total { font-size: 38px; font-weight: 800; margin: 6px 0 4px; }
-    .main-card .hint { font-size: 13px; opacity: 0.8; }
+    .main-card .hint { font-size: 13px; opacity: 0.85; }
 
     /* ===== Сітка 2x2 з маленькими картками ===== */
     .grid {
@@ -90,6 +91,7 @@
     }
     .stat .label { font-size: 12px; color: var(--muted); }
     .stat .value { font-size: 18px; font-weight: 700; margin-top: 4px; }
+    .stat .soon { font-size: 14px; color: var(--muted); margin-top: 6px; }
 
     /* ===== Блок "останні витрати" ===== */
     .section {
@@ -100,6 +102,20 @@
     }
     .section h2 { font-size: 16px; margin-bottom: 8px; }
     .empty { font-size: 14px; color: var(--muted); }
+    .error { font-size: 14px; color: var(--danger); }
+
+    /* Один рядок витрати */
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .item:last-child { border-bottom: none; }
+    .item .cat { font-weight: 600; font-size: 15px; text-transform: capitalize; }
+    .item .date { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .item .sum { font-weight: 700; font-size: 15px; white-space: nowrap; }
 
     /* ===== Нижнє меню ===== */
     .nav {
@@ -163,22 +179,22 @@
   <!-- Головна картка -->
   <div class="main-card">
     <div class="label">Витрачено за місяць</div>
-    <div class="total">0,00 ₴</div>
-    <div class="hint">Поки що це демо — реальні дані підключимо далі</div>
+    <div class="total" id="total">…</div>
+    <div class="hint" id="hint">Завантаження…</div>
   </div>
 
   <!-- 4 маленькі картки -->
   <div class="grid">
-    <div class="stat"><div class="label">Сьогодні</div><div class="value">0,00 ₴</div></div>
-    <div class="stat"><div class="label">В середньому / день</div><div class="value">0,00 ₴</div></div>
-    <div class="stat"><div class="label">Доходи</div><div class="value">0,00 ₴</div></div>
-    <div class="stat"><div class="label">Залишок</div><div class="value">0,00 ₴</div></div>
+    <div class="stat"><div class="label">Сьогодні</div><div class="value" id="today">…</div></div>
+    <div class="stat"><div class="label">В середньому / день</div><div class="value" id="avg">…</div></div>
+    <div class="stat"><div class="label">Доходи</div><div class="soon">скоро</div></div>
+    <div class="stat"><div class="label">Залишок</div><div class="soon">скоро</div></div>
   </div>
 
   <!-- Останні витрати -->
   <div class="section">
     <h2>Останні витрати</h2>
-    <div class="empty">Тут з'являться твої витрати з бота.</div>
+    <div id="lastList"><div class="empty">Завантаження…</div></div>
   </div>
 
   <!-- Нижнє меню -->
@@ -191,10 +207,14 @@
   </nav>
 
   <script>
-    // Об'єкт Telegram WebApp. Поза Telegram (просто в браузері) теж існує, але без даних користувача
+    // Об'єкт Telegram WebApp. Поза Telegram теж існує, але без даних користувача
     const tg = window.Telegram.WebApp;
     tg.ready();   // кажемо Telegram, що сторінка завантажилась
     tg.expand();  // розгортаємо апку на весь екран
+
+    // Адреса нашого API. Бот дописує її в посилання: ...github.io/expense-webapp/?api=https://...
+    // URLSearchParams читає параметри після знака "?"
+    const API = new URLSearchParams(window.location.search).get("api");
 
     // Ім'я користувача з Telegram. "?." — якщо даних немає, не буде помилки
     const user = tg.initDataUnsafe?.user;
@@ -211,10 +231,113 @@
       }
     }
 
-    // ===== Перемикач місяців (поки змінює тільки підпис) =====
+    // Гроші у форматі "1 234,50 ₴"
+    function money(value) {
+      return value.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₴";
+    }
+
+    // Дата '2026-10-26T19:30:00' -> '26.10, 19:30'
+    function formatDate(iso) {
+      const day = iso.slice(8, 10);
+      const month = iso.slice(5, 7);
+      const time = iso.slice(11, 16);
+      return `${day}.${month}, ${time}`;
+    }
+
+    // Показати текст помилки в головній картці і в списку
+    function showError(text) {
+      document.getElementById("total").textContent = "—";
+      document.getElementById("today").textContent = "—";
+      document.getElementById("avg").textContent = "—";
+      document.getElementById("hint").textContent = text;
+      document.getElementById("lastList").innerHTML = "";
+      const err = document.createElement("div");
+      err.className = "error";
+      err.textContent = text;
+      document.getElementById("lastList").appendChild(err);
+    }
+
+    // Намалювати список останніх витрат
+    function renderLast(items) {
+      const list = document.getElementById("lastList");
+      list.innerHTML = ""; // очищаємо старий вміст
+
+      if (items.length === 0) {
+        list.innerHTML = '<div class="empty">У цьому місяці витрат немає.</div>';
+        return;
+      }
+
+      items.forEach((item) => {
+        // Створюємо елементи через textContent, а не вставляємо текст як HTML:
+        // так навіть "дивна" категорія від користувача не зламає сторінку
+        const row = document.createElement("div");
+        row.className = "item";
+
+        const left = document.createElement("div");
+        const cat = document.createElement("div");
+        cat.className = "cat";
+        cat.textContent = item.category;
+        const date = document.createElement("div");
+        date.className = "date";
+        date.textContent = formatDate(item.created_at);
+        left.append(cat, date);
+
+        const sum = document.createElement("div");
+        sum.className = "sum";
+        sum.textContent = "−" + money(item.amount);
+
+        row.append(left, sum);
+        list.appendChild(row);
+      });
+    }
+
+    // ===== Головне: запит до API і показ даних =====
+    async function loadSummary() {
+      // Без адреси API або без даних Telegram нічого не вийде
+      if (!API) {
+        showError("Відкрий апку через кнопку в боті");
+        return;
+      }
+      if (!tg.initData) {
+        showError("Відкрий апку всередині Telegram");
+        return;
+      }
+
+      document.getElementById("total").textContent = "…";
+      document.getElementById("hint").textContent = "Завантаження…";
+
+      const year = current.getFullYear();
+      const month = current.getMonth() + 1; // у JS місяці від 0 до 11, тому +1
+
+      // initData — підписані Telegram дані про користувача. encodeURIComponent — щоб безпечно вставити в адресу
+      const url = `${API}/api/summary?year=${year}&month=${month}&initData=${encodeURIComponent(tg.initData)}`;
+
+      try {
+        const response = await fetch(url);   // відправляємо запит і чекаємо відповідь
+        const data = await response.json();  // перетворюємо JSON-текст на об'єкт
+
+        if (!response.ok) {
+          // API відповів помилкою (401, 400...) — показуємо його текст
+          showError(data.error || "Помилка сервера");
+          return;
+        }
+
+        document.getElementById("total").textContent = money(data.total);
+        document.getElementById("today").textContent = money(data.today);
+        document.getElementById("avg").textContent = money(data.avg_per_day);
+        document.getElementById("hint").textContent = "Дані з твого бота";
+        renderLast(data.last);
+      } catch (e) {
+        // Сюди потрапляємо, якщо API взагалі недоступний (вимкнений ПК, зупинений тунель)
+        showError("Сервер недоступний. Перевір, чи запущені API і тунель");
+      }
+    }
+
+    // ===== Перемикач місяців =====
     const months = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень",
                     "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
     let current = new Date(); // сьогоднішня дата
+    current.setDate(1);       // перше число, щоб перемикання місяців не "стрибало" (31 жовтня -> 1 грудня)
 
     function renderMonth() {
       document.getElementById("monthName").textContent = months[current.getMonth()];
@@ -224,12 +347,13 @@
     document.getElementById("prevMonth").onclick = () => {
       current.setMonth(current.getMonth() - 1);
       renderMonth();
+      loadSummary(); // при зміні місяця — нові дані
     };
     document.getElementById("nextMonth").onclick = () => {
       current.setMonth(current.getMonth() + 1);
       renderMonth();
+      loadSummary();
     };
-    renderMonth();
 
     // ===== Кнопки, які ще не працюють =====
     document.getElementById("addBtn").onclick = () => {
@@ -238,6 +362,10 @@
     document.querySelectorAll("[data-soon]").forEach((btn) => {
       btn.onclick = () => notify(`Розділ «${btn.dataset.soon}» скоро буде`);
     });
+
+    // Старт
+    renderMonth();
+    loadSummary();
   </script>
 </body>
 </html>
