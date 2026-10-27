@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Мої витрати</title>
 
-  <!-- Офіційний скрипт Telegram: дає доступ до імені користувача, initData, кнопок тощо -->
+  <!-- Офіційний скрипт Telegram: дає доступ до імені користувача, initData, вібрації тощо -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
@@ -156,6 +156,101 @@
       box-shadow: 0 6px 16px rgba(31, 169, 122, 0.4);
       cursor: pointer;
     }
+
+    /* ===== Вікно додавання витрати (виїжджає знизу) ===== */
+    .sheet-backdrop {
+      position: fixed;
+      inset: 0;                         /* на весь екран */
+      background: rgba(0, 0, 0, 0.4);   /* напівпрозоре затемнення */
+      display: flex;
+      align-items: flex-end;            /* вікно притиснуте до низу */
+      z-index: 10;
+    }
+    .sheet-backdrop[hidden] { display: none; } /* коли приховане — не показуємо */
+
+    .sheet {
+      background: var(--card);
+      width: 100%;
+      border-radius: 24px 24px 0 0;
+      padding: 12px 16px 28px;
+    }
+    .sheet-handle {
+      width: 40px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      margin: 0 auto 14px;
+    }
+    .sheet h3 { font-size: 18px; margin-bottom: 12px; }
+
+    .amount-input {
+      width: 100%;
+      font-size: 32px;
+      font-weight: 800;
+      border: none;
+      border-bottom: 2px solid var(--border);
+      padding: 6px 0;
+      margin-bottom: 14px;
+      outline: none;
+      color: var(--text);
+      background: transparent;
+    }
+    .amount-input:focus { border-bottom-color: var(--accent); }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .chip {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .chip.selected {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .category-input {
+      width: 100%;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      outline: none;
+      margin-bottom: 8px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .category-input:focus { border-color: var(--accent); }
+
+    .sheet-error {
+      min-height: 20px;
+      font-size: 14px;
+      color: var(--danger);
+      margin-bottom: 8px;
+    }
+
+    .sheet-actions { display: flex; gap: 10px; }
+    .sheet-actions button {
+      flex: 1;
+      border: none;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-secondary { background: var(--bg); color: var(--text); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:disabled { opacity: 0.6; }
   </style>
 </head>
 <body>
@@ -206,6 +301,23 @@
     <button class="nav-item" data-soon="Налаштування"><span class="icon">⚙️</span>Ще</button>
   </nav>
 
+  <!-- Вікно додавання витрати. Атрибут hidden — приховане, поки не натиснули "+" -->
+  <div class="sheet-backdrop" id="sheetBackdrop" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <h3>Нова витрата</h3>
+      <!-- inputmode="decimal" — на телефоні відкриється цифрова клавіатура -->
+      <input class="amount-input" id="amountInput" type="text" inputmode="decimal" placeholder="0,00 ₴" autocomplete="off">
+      <div class="chips" id="chips"></div>
+      <input class="category-input" id="categoryInput" type="text" maxlength="30" placeholder="Або своя категорія" autocomplete="off">
+      <div class="sheet-error" id="sheetError"></div>
+      <div class="sheet-actions">
+        <button class="btn-secondary" id="cancelBtn">Скасувати</button>
+        <button class="btn-primary" id="saveBtn">Зберегти</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Об'єкт Telegram WebApp. Поза Telegram теж існує, але без даних користувача
     const tg = window.Telegram.WebApp;
@@ -213,7 +325,6 @@
     tg.expand();  // розгортаємо апку на весь екран
 
     // Адреса нашого API. Бот дописує її в посилання: ...github.io/expense-webapp/?api=https://...
-    // URLSearchParams читає параметри після знака "?"
     const API = new URLSearchParams(window.location.search).get("api");
 
     // Ім'я користувача з Telegram. "?." — якщо даних немає, не буде помилки
@@ -291,9 +402,8 @@
       });
     }
 
-    // ===== Головне: запит до API і показ даних =====
+    // ===== Запит до API і показ даних =====
     async function loadSummary() {
-      // Без адреси API або без даних Telegram нічого не вийде
       if (!API) {
         showError("Відкрий апку через кнопку в боті");
         return;
@@ -317,7 +427,6 @@
         const data = await response.json();  // перетворюємо JSON-текст на об'єкт
 
         if (!response.ok) {
-          // API відповів помилкою (401, 400...) — показуємо його текст
           showError(data.error || "Помилка сервера");
           return;
         }
@@ -347,7 +456,7 @@
     document.getElementById("prevMonth").onclick = () => {
       current.setMonth(current.getMonth() - 1);
       renderMonth();
-      loadSummary(); // при зміні місяця — нові дані
+      loadSummary();
     };
     document.getElementById("nextMonth").onclick = () => {
       current.setMonth(current.getMonth() + 1);
@@ -355,10 +464,109 @@
       loadSummary();
     };
 
-    // ===== Кнопки, які ще не працюють =====
-    document.getElementById("addBtn").onclick = () => {
-      notify("Скоро тут буде додавання витрат 🙂");
+    // ===== Вікно додавання витрати =====
+    const sheetBackdrop = document.getElementById("sheetBackdrop");
+    const amountInput = document.getElementById("amountInput");
+    const categoryInput = document.getElementById("categoryInput");
+    const sheetError = document.getElementById("sheetError");
+    const saveBtn = document.getElementById("saveBtn");
+    const chipsBox = document.getElementById("chips");
+
+    // Готові категорії-кнопки. Можеш змінити список під себе
+    const presetCategories = ["їжа", "кава", "транспорт", "покупки", "розваги", "інше"];
+
+    // Підсвітити кнопку категорії, якщо її текст збігається з полем вводу
+    function highlightChips() {
+      const value = categoryInput.value.trim().toLowerCase();
+      chipsBox.querySelectorAll(".chip").forEach((chip) => {
+        chip.classList.toggle("selected", chip.textContent === value);
+      });
+    }
+
+    // Створюємо кнопки категорій з масиву
+    presetCategories.forEach((name) => {
+      const chip = document.createElement("button");
+      chip.className = "chip";
+      chip.textContent = name;
+      chip.onclick = () => {
+        categoryInput.value = name; // натиснув кнопку — категорія підставилась у поле
+        highlightChips();
+      };
+      chipsBox.appendChild(chip);
+    });
+    categoryInput.oninput = highlightChips; // пишеш вручну — підсвітка оновлюється
+
+    function openSheet() {
+      if (!API || !tg.initData) {
+        notify("Відкрий апку через кнопку в боті");
+        return;
+      }
+      amountInput.value = "";
+      categoryInput.value = "";
+      sheetError.textContent = "";
+      highlightChips();
+      sheetBackdrop.hidden = false; // показуємо вікно
+      amountInput.focus();          // одразу ставимо курсор у поле суми
+    }
+
+    function closeSheet() {
+      sheetBackdrop.hidden = true;
+    }
+
+    async function saveExpense() {
+      // Перевіряємо суму ще до відправки: кома -> крапка, потім у число
+      const amount = parseFloat(amountInput.value.replace(",", "."));
+      if (!amount || amount <= 0) {
+        sheetError.textContent = "Введи суму більше нуля";
+        return;
+      }
+      const category = categoryInput.value.trim() || "інше";
+
+      saveBtn.disabled = true;           // щоб не натиснули двічі
+      saveBtn.textContent = "Збереження…";
+      sheetError.textContent = "";
+
+      try {
+        // POST — запит, який щось змінює на сервері (на відміну від GET, який тільки читає)
+        // Заголовок Content-Type не ставимо: тоді браузер шле текст без додаткової CORS-перевірки
+        const response = await fetch(`${API}/api/expenses`, {
+          method: "POST",
+          body: JSON.stringify({ initData: tg.initData, amount: amount, category: category }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          sheetError.textContent = data.error || "Не вдалося зберегти";
+          return;
+        }
+
+        tg.HapticFeedback?.notificationOccurred("success"); // легка вібрація на телефоні
+        closeSheet();
+
+        // Повертаємось на поточний місяць і перезавантажуємо дані, щоб одразу побачити нову витрату
+        current = new Date();
+        current.setDate(1);
+        renderMonth();
+        loadSummary();
+      } catch (e) {
+        sheetError.textContent = "Сервер недоступний. Перевір API і тунель";
+      } finally {
+        // finally виконується завжди: і після успіху, і після помилки
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Зберегти";
+      }
+    }
+
+    document.getElementById("addBtn").onclick = openSheet;
+    document.getElementById("cancelBtn").onclick = closeSheet;
+    saveBtn.onclick = saveExpense;
+
+    // Клік по темному фону (поза вікном) — закрити
+    sheetBackdrop.onclick = (event) => {
+      if (event.target === sheetBackdrop) closeSheet();
     };
+
+    // ===== Кнопки меню, які ще не працюють =====
     document.querySelectorAll("[data-soon]").forEach((btn) => {
       btn.onclick = () => notify(`Розділ «${btn.dataset.soon}» скоро буде`);
     });
