@@ -76,7 +76,7 @@
     }
     .main-card .label { font-size: 14px; opacity: 0.85; }
     .main-card .total { font-size: 38px; font-weight: 800; margin: 6px 0 4px; }
-    .main-card .hint { font-size: 13px; opacity: 0.85; }
+    .main-card .hint { font-size: 13px; opacity: 0.9; }
 
     /* ===== Сітка 2x2 з маленькими картками ===== */
     .grid {
@@ -95,13 +95,14 @@
     .stat .value { font-size: 18px; font-weight: 700; margin-top: 4px; }
     .stat .soon { font-size: 14px; color: var(--muted); margin-top: 6px; }
 
-    /* ===== Блок зі списком ===== */
+    /* ===== Блок-картка ===== */
     .section {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 20px;
       padding: 16px;
     }
+    .section + .section { margin-top: 14px; } /* відступ між картками, що йдуть підряд */
     .section h2 { font-size: 16px; margin-bottom: 8px; }
     .empty { font-size: 14px; color: var(--muted); }
     .error { font-size: 14px; color: var(--danger); }
@@ -142,7 +143,6 @@
     .history-total .label { font-size: 14px; color: var(--muted); }
     .history-total .value { font-size: 22px; font-weight: 800; }
 
-    /* Заголовок дня: "28 жовтня, ср" і сума за день */
     .day-header {
       display: flex;
       justify-content: space-between;
@@ -154,6 +154,104 @@
       border-bottom: 1px solid var(--border);
     }
 
+    /* ===== Екран статистики ===== */
+
+    /* Графік по днях: ряд стовпчиків, вирівняних по низу */
+    .day-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 140px;
+      margin-top: 8px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .day-bar {
+      flex: 1;                         /* усі стовпчики однакової ширини */
+      min-height: 3px;
+      background: var(--accent);
+      border-radius: 3px 3px 0 0;
+      cursor: pointer;
+    }
+    .day-bar.empty { background: var(--border); }
+    .day-bar.today { background: var(--accent-dark); }
+    .day-bar.selected { background: var(--text); }
+
+    .chart-axis {
+      display: flex;
+      gap: 2px;
+      margin-top: 4px;
+    }
+    .chart-axis span {
+      flex: 1;
+      text-align: center;
+      font-size: 10px;
+      color: var(--muted);
+      overflow: visible;
+      white-space: nowrap;
+    }
+    .chart-caption {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    /* Категорії: емодзі, назва, сума і смужка-прогрес */
+    .cat-row { padding: 10px 0; }
+    .cat-top { display: flex; align-items: center; gap: 10px; }
+    .cat-emoji {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 19px;
+      flex-shrink: 0;
+    }
+    .cat-name { flex: 1; font-weight: 600; font-size: 15px; }
+    .cat-name .pct { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 4px; }
+    .cat-sum { font-weight: 700; font-size: 15px; white-space: nowrap; }
+    .progress {
+      height: 8px;
+      background: var(--bg);
+      border-radius: 4px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+    }
+
+    /* Графік за 6 місяців */
+    .month-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      height: 160px;
+      margin-top: 8px;
+    }
+    .month-col {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+    }
+    .month-value { font-size: 11px; font-weight: 700; margin-bottom: 4px; white-space: nowrap; }
+    .month-bar {
+      width: 100%;
+      min-height: 4px;
+      background: var(--border);
+      border-radius: 6px 6px 0 0;
+    }
+    .month-col.current .month-bar { background: var(--accent); }
+    .month-name { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
     /* ===== Нижнє меню ===== */
     .nav {
       position: fixed;
@@ -164,6 +262,7 @@
       justify-content: space-around;
       align-items: center;
       padding: 10px 8px 22px;
+      z-index: 5;
     }
     .nav-item {
       background: none;
@@ -197,13 +296,12 @@
     /* ===== Вікно додавання витрати (виїжджає знизу) ===== */
     .sheet-backdrop {
       position: fixed;
-      inset: 0;                         /* на весь екран */
-      background: rgba(0, 0, 0, 0.4);   /* напівпрозоре затемнення */
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
       display: flex;
-      align-items: flex-end;            /* вікно притиснуте до низу */
+      align-items: flex-end;
       z-index: 10;
     }
-
     .sheet {
       background: var(--card);
       width: 100%;
@@ -328,7 +426,7 @@
     </div>
   </div>
 
-  <!-- ===== ЕКРАН 2: Історія (прихований, поки не натиснули "Історія") ===== -->
+  <!-- ===== ЕКРАН 2: Історія ===== -->
   <div id="historyScreen" hidden>
     <div class="section">
       <div class="history-total">
@@ -339,21 +437,46 @@
     </div>
   </div>
 
+  <!-- ===== ЕКРАН 3: Статистика ===== -->
+  <div id="statsScreen" hidden>
+    <div class="main-card">
+      <div class="label">Витрачено за місяць</div>
+      <div class="total" id="statsTotal">…</div>
+      <div class="hint" id="statsCompare">Завантаження…</div>
+    </div>
+
+    <div class="section">
+      <h2>Витрати по днях</h2>
+      <div class="day-chart" id="dayChart"></div>
+      <div class="chart-axis" id="dayAxis"></div>
+      <div class="chart-caption" id="dayCaption">Натисни на стовпчик, щоб побачити суму</div>
+    </div>
+
+    <div class="section">
+      <h2>За категоріями</h2>
+      <div id="categoryList"><div class="empty">Завантаження…</div></div>
+    </div>
+
+    <div class="section">
+      <h2>Останні 6 місяців</h2>
+      <div class="month-chart" id="monthChart"></div>
+    </div>
+  </div>
+
   <!-- Нижнє меню -->
   <nav class="nav">
     <button class="nav-item active" data-screen="home"><span class="icon">🏠</span>Головна</button>
     <button class="nav-item" data-screen="history"><span class="icon">📋</span>Історія</button>
     <button class="add-btn" id="addBtn">+</button>
-    <button class="nav-item" data-soon="Статистика"><span class="icon">📊</span>Статистика</button>
+    <button class="nav-item" data-screen="stats"><span class="icon">📊</span>Статистика</button>
     <button class="nav-item" data-soon="Налаштування"><span class="icon">⚙️</span>Ще</button>
   </nav>
 
-  <!-- Вікно додавання витрати. Атрибут hidden — приховане, поки не натиснули "+" -->
+  <!-- Вікно додавання витрати -->
   <div class="sheet-backdrop" id="sheetBackdrop" hidden>
     <div class="sheet">
       <div class="sheet-handle"></div>
       <h3>Нова витрата</h3>
-      <!-- inputmode="decimal" — на телефоні відкриється цифрова клавіатура -->
       <input class="amount-input" id="amountInput" type="text" inputmode="decimal" placeholder="0,00 ₴" autocomplete="off">
       <div class="chips" id="chips"></div>
       <input class="category-input" id="categoryInput" type="text" maxlength="30" placeholder="Або своя категорія" autocomplete="off">
@@ -366,23 +489,40 @@
   </div>
 
   <script>
-    // Об'єкт Telegram WebApp. Поза Telegram теж існує, але без даних користувача
     const tg = window.Telegram.WebApp;
-    tg.ready();   // кажемо Telegram, що сторінка завантажилась
-    tg.expand();  // розгортаємо апку на весь екран
+    tg.ready();
+    tg.expand();
 
     // Адреса нашого API. Бот дописує її в посилання: ...github.io/expense-webapp/?api=https://...
     const API = new URLSearchParams(window.location.search).get("api");
 
-    // Ім'я користувача з Telegram. "?." — якщо даних немає, не буде помилки
     const user = tg.initDataUnsafe?.user;
     if (user?.first_name) {
       document.getElementById("hello").textContent = `Привіт, ${user.first_name}!`;
     }
 
+    // ===== Назви місяців у різних формах =====
+    const months = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень",
+                    "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
+    const monthsGenitive = ["січня", "лютого", "березня", "квітня", "травня", "червня",
+                            "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"];
+    const monthsLocative = ["січні", "лютому", "березні", "квітні", "травні", "червні",
+                            "липні", "серпні", "вересні", "жовтні", "листопаді", "грудні"];
+    const monthsShort = ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"];
+    const weekdays = ["нд", "пн", "вт", "ср", "чт", "пт", "сб"];
+
+    // Емодзі для категорій. Невідома категорія отримає 🏷️
+    const categoryEmoji = {
+      "їжа": "🍔", "кава": "☕", "транспорт": "🚌", "таксі": "🚕", "авто": "🚗",
+      "покупки": "🛍️", "розваги": "🎮", "здоров'я": "💊", "одяг": "👕",
+      "зв'язок": "📱", "дім": "🏠", "інше": "📦",
+    };
+    function emojiFor(category) {
+      return categoryEmoji[category] || "🏷️";
+    }
+
     // ===== Допоміжні функції =====
 
-    // Показ повідомлення: в Telegram — гарне вікно, в браузері — звичайний alert
     function notify(text) {
       if (tg.initData) {
         tg.showAlert(text);
@@ -391,8 +531,6 @@
       }
     }
 
-    // Питання "Так / Ні". Повертає true або false.
-    // Promise — "обіцянка відповіді": ми чекаємо (await), поки людина натисне кнопку
     function askConfirm(text) {
       if (tg.initData) {
         return new Promise((resolve) => tg.showConfirm(text, resolve));
@@ -405,32 +543,32 @@
       return value.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₴";
     }
 
-    // Дата '2026-10-26T19:30:00' -> '26.10, 19:30'
+    // Коротка сума для графіків: 850 -> "850", 1250 -> "1,3 тис"
+    function shortMoney(value) {
+      if (value >= 1000) {
+        return (value / 1000).toLocaleString("uk-UA", { maximumFractionDigits: 1 }) + " тис";
+      }
+      return Math.round(value).toString();
+    }
+
     function formatDate(iso) {
       return `${iso.slice(8, 10)}.${iso.slice(5, 7)}, ${iso.slice(11, 16)}`;
     }
-
-    // Дата '2026-10-26' -> 'Сьогодні' / 'Вчора' / '26 жовтня, пн'
-    const monthsGenitive = ["січня", "лютого", "березня", "квітня", "травня", "червня",
-                            "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"];
-    const weekdays = ["нд", "пн", "вт", "ср", "чт", "пт", "сб"];
 
     function dayTitle(dayIso) {
       const date = new Date(dayIso + "T00:00:00");
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const diffDays = Math.round((today - date) / 86400000); // 86400000 мс = 1 доба
+      const diffDays = Math.round((today - date) / 86400000);
       if (diffDays === 0) return "Сьогодні";
       if (diffDays === 1) return "Вчора";
       return `${date.getDate()} ${monthsGenitive[date.getMonth()]}, ${weekdays[date.getDay()]}`;
     }
 
-    // Чи можна взагалі звертатися до API
     function apiAvailable() {
       return Boolean(API && tg.initData);
     }
 
-    // Текст помилки в будь-якому контейнері
     function showErrorIn(containerId, text) {
       const box = document.getElementById(containerId);
       box.innerHTML = "";
@@ -438,6 +576,33 @@
       err.className = "error";
       err.textContent = text;
       box.appendChild(err);
+    }
+
+    // Спільна функція запиту до API: повертає дані або кидає помилку з текстом
+    async function apiGet(path) {
+      const year = current.getFullYear();
+      const month = current.getMonth() + 1;
+      const url = `${API}${path}?year=${year}&month=${month}&initData=${encodeURIComponent(tg.initData)}`;
+
+      let response;
+      try {
+        response = await fetch(url);
+      } catch (e) {
+        throw new Error("Сервер недоступний. Перевір, чи запущені API і тунель");
+      }
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        // Відповідь не JSON — найчастіше API запущений зі старим кодом і не знає нової адреси
+        throw new Error(response.status === 404
+          ? "API не знає цієї адреси. Перезапусти api.py"
+          : "Помилка сервера");
+      }
+      if (!response.ok) {
+        throw new Error(data.error || "Помилка сервера");
+      }
+      return data;
     }
 
     // ===== ЕКРАН 1: Головна =====
@@ -450,7 +615,6 @@
       showErrorIn("lastList", text);
     }
 
-    // Намалювати "Останні витрати" на головній
     function renderLast(items) {
       const list = document.getElementById("lastList");
       list.innerHTML = "";
@@ -461,7 +625,6 @@
       }
 
       items.forEach((item) => {
-        // textContent замість вставки HTML: так "дивна" категорія від користувача не зламає сторінку
         const row = document.createElement("div");
         row.className = "item";
 
@@ -490,33 +653,24 @@
       document.getElementById("total").textContent = "…";
       document.getElementById("hint").textContent = "Завантаження…";
 
-      const year = current.getFullYear();
-      const month = current.getMonth() + 1; // у JS місяці від 0 до 11, тому +1
-      const url = `${API}/api/summary?year=${year}&month=${month}&initData=${encodeURIComponent(tg.initData)}`;
-
       try {
-        const response = await fetch(url);
-        const data = await response.json();
-        if (!response.ok) { showHomeError(data.error || "Помилка сервера"); return; }
-
+        const data = await apiGet("/api/summary");
         document.getElementById("total").textContent = money(data.total);
         document.getElementById("today").textContent = money(data.today);
         document.getElementById("avg").textContent = money(data.avg_per_day);
         document.getElementById("hint").textContent = "Дані з твого бота";
         renderLast(data.last);
       } catch (e) {
-        showHomeError("Сервер недоступний. Перевір, чи запущені API і тунель");
+        showHomeError(e.message);
       }
     }
 
     // ===== ЕКРАН 2: Історія =====
 
-    // Намалювати всі витрати місяця, згруповані по днях
     function renderHistory(items) {
       const list = document.getElementById("historyList");
       list.innerHTML = "";
 
-      // Сума за місяць: reduce проходить по всіх витратах і додає суми
       const monthTotal = items.reduce((acc, item) => acc + item.amount, 0);
       document.getElementById("historyTotal").textContent = money(monthTotal);
 
@@ -525,7 +679,6 @@
         return;
       }
 
-      // 1. Групуємо: { '2026-10-28': [витрата, витрата], '2026-10-27': [...] }
       const groups = {};
       items.forEach((item) => {
         const day = item.created_at.slice(0, 10);
@@ -533,7 +686,6 @@
         groups[day].push(item);
       });
 
-      // 2. Малюємо кожен день: заголовок + його витрати
       Object.keys(groups).forEach((day) => {
         const dayItems = groups[day];
         const dayTotal = dayItems.reduce((acc, item) => acc + item.amount, 0);
@@ -557,7 +709,7 @@
           cat.textContent = item.category;
           const time = document.createElement("div");
           time.className = "date";
-          time.textContent = item.created_at.slice(11, 16); // тільки час, день уже в заголовку
+          time.textContent = item.created_at.slice(11, 16);
           left.append(cat, time);
 
           const right = document.createElement("div");
@@ -584,32 +736,21 @@
 
       document.getElementById("historyTotal").textContent = "…";
 
-      const year = current.getFullYear();
-      const month = current.getMonth() + 1;
-      const url = `${API}/api/expenses?year=${year}&month=${month}&initData=${encodeURIComponent(tg.initData)}`;
-
       try {
-        const response = await fetch(url);
-        const data = await response.json();
-        if (!response.ok) {
-          showErrorIn("historyList", data.error || "Помилка сервера");
-          return;
-        }
+        const data = await apiGet("/api/expenses");
         renderHistory(data.items);
       } catch (e) {
-        showErrorIn("historyList", "Сервер недоступний. Перевір, чи запущені API і тунель");
+        showErrorIn("historyList", e.message);
       }
     }
 
-    // Видалення однієї витрати (з підтвердженням)
     async function deleteExpense(item, button) {
       const ok = await askConfirm(`Видалити «${item.category}» на ${money(item.amount)}?`);
       if (!ok) return;
 
-      button.disabled = true; // щоб не натиснули двічі
+      button.disabled = true;
 
       try {
-        // Знову POST без Content-Type — як при додаванні
         const response = await fetch(`${API}/api/expenses/delete`, {
           method: "POST",
           body: JSON.stringify({ initData: tg.initData, id: item.id }),
@@ -623,36 +764,196 @@
         }
 
         tg.HapticFeedback?.notificationOccurred("success");
-        loadHistory(); // перемальовуємо список без видаленої витрати
+        loadHistory();
       } catch (e) {
         notify("Сервер недоступний. Перевір API і тунель");
         button.disabled = false;
       }
     }
 
+    // ===== ЕКРАН 3: Статистика =====
+
+    // Порівняння з минулим місяцем: "▲ На 12% більше, ніж у вересні"
+    function compareText(total, prevTotal, prevMonthNumber) {
+      if (prevTotal <= 0) {
+        return "Немає даних за минулий місяць для порівняння";
+      }
+      const diff = ((total - prevTotal) / prevTotal) * 100; // різниця у відсотках
+      const percent = Math.abs(Math.round(diff));
+      const where = monthsLocative[prevMonthNumber - 1];
+      if (percent === 0) return `Так само, як у ${where}`;
+      if (diff > 0) return `▲ На ${percent}% більше, ніж у ${where}`;
+      return `▼ На ${percent}% менше, ніж у ${where}`;
+    }
+
+    // Графік по днях
+    function renderDayChart(byDay) {
+      const chart = document.getElementById("dayChart");
+      const axis = document.getElementById("dayAxis");
+      const caption = document.getElementById("dayCaption");
+      chart.innerHTML = "";
+      axis.innerHTML = "";
+      caption.textContent = "Натисни на стовпчик, щоб побачити суму";
+
+      // Найбільша сума за день — вона буде стовпчиком на всю висоту
+      const max = Math.max(...byDay, 0);
+
+      // Чи вибраний зараз поточний місяць (щоб підсвітити "сьогодні")
+      const now = new Date();
+      const isCurrentMonth = now.getFullYear() === current.getFullYear() && now.getMonth() === current.getMonth();
+
+      byDay.forEach((value, index) => {
+        const day = index + 1;
+
+        const bar = document.createElement("div");
+        bar.className = "day-bar";
+        // Висота у відсотках від максимуму. Якщо витрат не було — тонка сіра риска
+        bar.style.height = max > 0 ? `${(value / max) * 100}%` : "3px";
+        if (value === 0) bar.classList.add("empty");
+        if (isCurrentMonth && day === now.getDate()) bar.classList.add("today");
+
+        bar.onclick = () => {
+          chart.querySelectorAll(".day-bar").forEach((b) => b.classList.remove("selected"));
+          bar.classList.add("selected");
+          caption.textContent = `${day} ${monthsGenitive[current.getMonth()]}: ${money(value)}`;
+        };
+        chart.appendChild(bar);
+
+        // Підписи тільки для 1, 5, 10, 15, 20, 25 і останнього дня — інакше не влізуть
+        const label = document.createElement("span");
+        if (day === 1 || day % 5 === 0 || day === byDay.length) {
+          label.textContent = day;
+        }
+        axis.appendChild(label);
+      });
+    }
+
+    // Категорії зі смужками
+    function renderCategories(byCategory, total) {
+      const list = document.getElementById("categoryList");
+      list.innerHTML = "";
+
+      if (byCategory.length === 0) {
+        list.innerHTML = '<div class="empty">У цьому місяці витрат немає.</div>';
+        return;
+      }
+
+      byCategory.forEach((row) => {
+        const percent = total > 0 ? Math.round((row.total / total) * 100) : 0;
+
+        const wrap = document.createElement("div");
+        wrap.className = "cat-row";
+
+        const top = document.createElement("div");
+        top.className = "cat-top";
+
+        const emoji = document.createElement("div");
+        emoji.className = "cat-emoji";
+        emoji.textContent = emojiFor(row.category);
+
+        const name = document.createElement("div");
+        name.className = "cat-name";
+        // Перша літера велика: "кава" -> "Кава"
+        name.textContent = row.category.charAt(0).toUpperCase() + row.category.slice(1);
+        const pct = document.createElement("span");
+        pct.className = "pct";
+        pct.textContent = `${percent}%`;
+        name.appendChild(pct);
+
+        const sum = document.createElement("div");
+        sum.className = "cat-sum";
+        sum.textContent = money(row.total);
+
+        top.append(emoji, name, sum);
+
+        const progress = document.createElement("div");
+        progress.className = "progress";
+        const fill = document.createElement("div");
+        fill.className = "progress-fill";
+        fill.style.width = `${percent}%`;
+        progress.appendChild(fill);
+
+        wrap.append(top, progress);
+        list.appendChild(wrap);
+      });
+    }
+
+    // Графік за 6 місяців
+    function renderMonthChart(lastMonths) {
+      const chart = document.getElementById("monthChart");
+      chart.innerHTML = "";
+
+      const max = Math.max(...lastMonths.map((m) => m.total), 0);
+
+      lastMonths.forEach((m, index) => {
+        const col = document.createElement("div");
+        col.className = "month-col";
+        if (index === lastMonths.length - 1) col.classList.add("current"); // останній = вибраний місяць
+
+        const value = document.createElement("div");
+        value.className = "month-value";
+        value.textContent = m.total > 0 ? shortMoney(m.total) : "";
+
+        const bar = document.createElement("div");
+        bar.className = "month-bar";
+        // Максимум 80% висоти, щоб над найвищим стовпчиком влізла цифра
+        bar.style.height = max > 0 ? `${(m.total / max) * 80}%` : "4px";
+
+        const name = document.createElement("div");
+        name.className = "month-name";
+        name.textContent = monthsShort[m.month - 1];
+
+        col.append(value, bar, name);
+        chart.appendChild(col);
+      });
+    }
+
+    async function loadStats() {
+      const compare = document.getElementById("statsCompare");
+      if (!API) { compare.textContent = "Відкрий апку через кнопку в боті"; return; }
+      if (!tg.initData) { compare.textContent = "Відкрий апку всередині Telegram"; return; }
+
+      document.getElementById("statsTotal").textContent = "…";
+      compare.textContent = "Завантаження…";
+
+      try {
+        const data = await apiGet("/api/stats");
+        const prevMonthNumber = data.last_months[data.last_months.length - 2].month;
+
+        document.getElementById("statsTotal").textContent = money(data.total);
+        compare.textContent = compareText(data.total, data.prev_total, prevMonthNumber);
+        renderDayChart(data.by_day);
+        renderCategories(data.by_category, data.total);
+        renderMonthChart(data.last_months);
+      } catch (e) {
+        document.getElementById("statsTotal").textContent = "—";
+        compare.textContent = e.message;
+        showErrorIn("categoryList", e.message);
+      }
+    }
+
     // ===== Перемикання екранів =====
     let activeScreen = "home";
+    const screenTitles = { home: "Мої витрати", history: "Історія", stats: "Статистика" };
 
     function reloadActiveScreen() {
-      if (activeScreen === "home") {
-        loadSummary();
-      } else {
-        loadHistory();
-      }
+      if (activeScreen === "home") loadSummary();
+      else if (activeScreen === "history") loadHistory();
+      else if (activeScreen === "stats") loadStats();
     }
 
     function showScreen(name) {
       activeScreen = name;
       document.getElementById("homeScreen").hidden = name !== "home";
       document.getElementById("historyScreen").hidden = name !== "history";
-      document.getElementById("screenTitle").textContent = name === "home" ? "Мої витрати" : "Історія";
+      document.getElementById("statsScreen").hidden = name !== "stats";
+      document.getElementById("screenTitle").textContent = screenTitles[name];
 
-      // Підсвічуємо активну кнопку в меню
       document.querySelectorAll("[data-screen]").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.screen === name);
       });
 
-      window.scrollTo(0, 0); // на початок сторінки
+      window.scrollTo(0, 0);
       reloadActiveScreen();
     }
 
@@ -660,11 +961,9 @@
       btn.onclick = () => showScreen(btn.dataset.screen);
     });
 
-    // ===== Перемикач місяців (працює для обох екранів) =====
-    const months = ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень",
-                    "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
-    let current = new Date(); // сьогоднішня дата
-    current.setDate(1);       // перше число, щоб перемикання місяців не "стрибало" (31 жовтня -> 1 грудня)
+    // ===== Перемикач місяців (для всіх екранів) =====
+    let current = new Date();
+    current.setDate(1); // перше число, щоб перемикання місяців не "стрибало"
 
     function renderMonth() {
       document.getElementById("monthName").textContent = months[current.getMonth()];
@@ -690,10 +989,8 @@
     const saveBtn = document.getElementById("saveBtn");
     const chipsBox = document.getElementById("chips");
 
-    // Готові категорії-кнопки. Можеш змінити список під себе
     const presetCategories = ["їжа", "кава", "транспорт", "покупки", "розваги", "інше"];
 
-    // Підсвітити кнопку категорії, якщо її текст збігається з полем вводу
     function highlightChips() {
       const value = categoryInput.value.trim().toLowerCase();
       chipsBox.querySelectorAll(".chip").forEach((chip) => {
@@ -743,8 +1040,6 @@
       sheetError.textContent = "";
 
       try {
-        // POST — запит, який щось змінює на сервері (GET тільки читає)
-        // Заголовок Content-Type не ставимо: тоді браузер шле текст без додаткової CORS-перевірки
         const response = await fetch(`${API}/api/expenses`, {
           method: "POST",
           body: JSON.stringify({ initData: tg.initData, amount: amount, category: category }),
@@ -759,7 +1054,6 @@
         tg.HapticFeedback?.notificationOccurred("success");
         closeSheet();
 
-        // Повертаємось на поточний місяць і оновлюємо екран, де зараз користувач
         current = new Date();
         current.setDate(1);
         renderMonth();
@@ -776,7 +1070,6 @@
     document.getElementById("cancelBtn").onclick = closeSheet;
     saveBtn.onclick = saveExpense;
 
-    // Клік по темному фону (поза вікном) — закрити
     sheetBackdrop.onclick = (event) => {
       if (event.target === sheetBackdrop) closeSheet();
     };
