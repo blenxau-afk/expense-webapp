@@ -20,6 +20,7 @@
       --accent-dark: #127A57; /* темніший зелений для градієнта */
       --border: #E3E8E4;
       --danger: #D9534F;      /* червоний для помилок */
+      --warning: #E8A33D;     /* помаранчевий: бюджет майже вичерпано */
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -252,6 +253,63 @@
     .month-col.current .month-bar { background: var(--accent); }
     .month-name { font-size: 11px; color: var(--muted); margin-top: 6px; }
 
+    /* ===== Блок бюджету на головній ===== */
+    .budget-box { margin-bottom: 14px; }
+    .budget-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .budget-head h2 { margin-bottom: 0; }
+    .budget-edit {
+      border: none;
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .budget-amounts { font-size: 14px; color: var(--muted); margin-top: 8px; }
+    .budget-amounts b { color: var(--text); }
+    .budget-bar {
+      height: 10px;
+      background: var(--bg);
+      border-radius: 5px;
+      margin: 10px 0 8px;
+      overflow: hidden;
+    }
+    .budget-fill {
+      height: 100%;
+      border-radius: 5px;
+      background: var(--accent);
+    }
+    .budget-fill.warning { background: var(--warning); }
+    .budget-fill.over { background: var(--danger); }
+    .budget-note { font-size: 14px; font-weight: 600; }
+    .budget-note.over { color: var(--danger); }
+    .budget-empty-text { font-size: 14px; color: var(--muted); margin: 6px 0 12px; }
+    .budget-set-btn {
+      width: 100%;
+      border: none;
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+    }
+    .btn-danger-text {
+      width: 100%;
+      border: none;
+      background: none;
+      color: var(--danger);
+      font-size: 15px;
+      padding: 12px 0 0;
+      cursor: pointer;
+    }
+
     /* ===== Нижнє меню ===== */
     .nav {
       position: fixed;
@@ -413,6 +471,9 @@
       <div class="hint" id="hint">Завантаження…</div>
     </div>
 
+    <!-- Блок бюджету: заповнюється з JS, поки даних немає — прихований -->
+    <div class="section budget-box" id="budgetBox" hidden></div>
+
     <div class="grid">
       <div class="stat"><div class="label">Сьогодні</div><div class="value" id="today">…</div></div>
       <div class="stat"><div class="label">В середньому / день</div><div class="value" id="avg">…</div></div>
@@ -485,6 +546,21 @@
         <button class="btn-secondary" id="cancelBtn">Скасувати</button>
         <button class="btn-primary" id="saveBtn">Зберегти</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Вікно встановлення бюджету -->
+  <div class="sheet-backdrop" id="budgetBackdrop" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <h3>Бюджет на місяць</h3>
+      <input class="amount-input" id="budgetInput" type="text" inputmode="decimal" placeholder="Наприклад, 15 000 ₴" autocomplete="off">
+      <div class="sheet-error" id="budgetError"></div>
+      <div class="sheet-actions">
+        <button class="btn-secondary" id="budgetCancelBtn">Скасувати</button>
+        <button class="btn-primary" id="budgetSaveBtn">Зберегти</button>
+      </div>
+      <button class="btn-danger-text" id="budgetRemoveBtn" hidden>Прибрати бюджет</button>
     </div>
   </div>
 
@@ -607,7 +683,152 @@
 
     // ===== ЕКРАН 1: Головна =====
 
+    // ===== Бюджет =====
+    let currentBudget = null; // бюджет з сервера: число або null, якщо не встановлено
+
+    // Намалювати блок бюджету. total — витрачено за вибраний місяць
+    function renderBudget(total, budget) {
+      currentBudget = budget;
+      const box = document.getElementById("budgetBox");
+      box.innerHTML = "";
+      box.hidden = false;
+
+      // Заголовок блоку
+      const head = document.createElement("div");
+      head.className = "budget-head";
+      const title = document.createElement("h2");
+      title.textContent = "🎯 Бюджет";
+      head.appendChild(title);
+      box.appendChild(head);
+
+      // Бюджету немає — пропонуємо встановити
+      if (!budget) {
+        const text = document.createElement("div");
+        text.className = "budget-empty-text";
+        text.textContent = "Встанови бюджет на місяць — і я підкажу, скільки можна витрачати щодня";
+        const btn = document.createElement("button");
+        btn.className = "budget-set-btn";
+        btn.textContent = "Встановити бюджет";
+        btn.onclick = openBudgetSheet;
+        box.append(text, btn);
+        return;
+      }
+
+      // Бюджет є: кнопка редагування в заголовку
+      const edit = document.createElement("button");
+      edit.className = "budget-edit";
+      edit.textContent = "✏️ Змінити";
+      edit.onclick = openBudgetSheet;
+      head.appendChild(edit);
+
+      const percent = (total / budget) * 100;
+
+      // "Витрачено 9 700 ₴ з 15 000 ₴"
+      const amounts = document.createElement("div");
+      amounts.className = "budget-amounts";
+      amounts.innerHTML = "Витрачено <b></b> з <b></b>";
+      amounts.querySelectorAll("b")[0].textContent = money(total);
+      amounts.querySelectorAll("b")[1].textContent = money(budget);
+
+      // Смужка: зелена до 80%, помаранчева до 100%, червона понад
+      const bar = document.createElement("div");
+      bar.className = "budget-bar";
+      const fill = document.createElement("div");
+      fill.className = "budget-fill";
+      if (percent >= 100) fill.classList.add("over");
+      else if (percent >= 80) fill.classList.add("warning");
+      fill.style.width = `${Math.min(percent, 100)}%`; // не ширше за 100%
+      bar.appendChild(fill);
+
+      // Підказка під смужкою
+      const note = document.createElement("div");
+      note.className = "budget-note";
+
+      const now = new Date();
+      const isCurrentMonth = now.getFullYear() === current.getFullYear() && now.getMonth() === current.getMonth();
+      const remaining = budget - total;
+
+      if (remaining < 0) {
+        note.classList.add("over");
+        note.textContent = `⚠️ Бюджет перевищено на ${money(-remaining)}`;
+      } else if (isCurrentMonth) {
+        // new Date(рік, місяць + 1, 0) — "нульовий" день наступного місяця = останній день цього
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const daysLeft = daysInMonth - now.getDate() + 1; // разом із сьогоднішнім днем
+        const perDay = remaining / daysLeft;
+        note.textContent = `Залишилось ${money(remaining)} — можна ~${money(perDay)} на день`;
+      } else {
+        // Минулий або майбутній місяць: денна підказка не має сенсу
+        note.textContent = `Використано ${Math.round(percent)}% бюджету`;
+      }
+
+      box.append(amounts, bar, note);
+    }
+
+    const budgetBackdrop = document.getElementById("budgetBackdrop");
+    const budgetInput = document.getElementById("budgetInput");
+    const budgetError = document.getElementById("budgetError");
+    const budgetSaveBtn = document.getElementById("budgetSaveBtn");
+    const budgetRemoveBtn = document.getElementById("budgetRemoveBtn");
+
+    function openBudgetSheet() {
+      budgetInput.value = currentBudget ? String(currentBudget).replace(".", ",") : "";
+      budgetError.textContent = "";
+      budgetRemoveBtn.hidden = !currentBudget; // "Прибрати" показуємо, тільки якщо бюджет уже є
+      budgetBackdrop.hidden = false;
+      budgetInput.focus();
+    }
+
+    function closeBudgetSheet() {
+      budgetBackdrop.hidden = true;
+    }
+
+    // Відправити бюджет на сервер. amount = 0 — прибрати бюджет
+    async function sendBudget(amount) {
+      budgetSaveBtn.disabled = true;
+      budgetError.textContent = "";
+      try {
+        const response = await fetch(`${API}/api/budget`, {
+          method: "POST",
+          body: JSON.stringify({ initData: tg.initData, amount: amount }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          budgetError.textContent = data.error || "Не вдалося зберегти";
+          return;
+        }
+        tg.HapticFeedback?.notificationOccurred("success");
+        closeBudgetSheet();
+        loadSummary(); // перемальовуємо головну з новим бюджетом
+      } catch (e) {
+        budgetError.textContent = "Сервер недоступний. Перевір API і тунель";
+      } finally {
+        budgetSaveBtn.disabled = false;
+      }
+    }
+
+    budgetSaveBtn.onclick = () => {
+      // Прибираємо пробіли (15 000 -> 15000) і міняємо кому на крапку
+      const amount = parseFloat(budgetInput.value.replace(/\s/g, "").replace(",", "."));
+      if (!amount || amount <= 0) {
+        budgetError.textContent = "Введи суму більше нуля";
+        return;
+      }
+      sendBudget(amount);
+    };
+
+    budgetRemoveBtn.onclick = async () => {
+      const ok = await askConfirm("Прибрати бюджет на місяць?");
+      if (ok) sendBudget(0);
+    };
+
+    document.getElementById("budgetCancelBtn").onclick = closeBudgetSheet;
+    budgetBackdrop.onclick = (event) => {
+      if (event.target === budgetBackdrop) closeBudgetSheet();
+    };
+
     function showHomeError(text) {
+      document.getElementById("budgetBox").hidden = true;
       document.getElementById("total").textContent = "—";
       document.getElementById("today").textContent = "—";
       document.getElementById("avg").textContent = "—";
@@ -659,6 +880,7 @@
         document.getElementById("today").textContent = money(data.today);
         document.getElementById("avg").textContent = money(data.avg_per_day);
         document.getElementById("hint").textContent = "Дані з твого бота";
+        renderBudget(data.total, data.budget ?? null); // ?? null — якщо сервер не надіслав budget
         renderLast(data.last);
       } catch (e) {
         showHomeError(e.message);
