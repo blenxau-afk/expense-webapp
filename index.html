@@ -21,7 +21,41 @@
       --border: #E3E8E4;
       --danger: #D9534F;      /* червоний для помилок */
       --warning: #E8A33D;     /* помаранчевий: бюджет майже вичерпано */
+      --on-accent: #FFFFFF;   /* колір тексту на кнопках і зеленій картці */
     }
+
+    /* ===== Теми: кожна просто перевизначає ті самі змінні ===== */
+    :root[data-theme="dark"] {
+      --bg: #0F0F10;
+      --card: #1C1C1E;
+      --text: #F2F2F2;
+      --muted: #9A9AA0;
+      --accent: #F2F2F2;
+      --accent-dark: #8E8E93;
+      --border: #2C2C2E;
+      --on-accent: #111111;
+    }
+    :root[data-theme="pink"] {
+      --bg: #FFF1F5;
+      --card: #FFFFFF;
+      --text: #2B1420;
+      --muted: #8A6A78;
+      --accent: #E0457B;
+      --accent-dark: #A82A58;
+      --border: #F5D6E1;
+      --on-accent: #FFFFFF;
+    }
+    :root[data-theme="gold"] {
+      --bg: #12100B;
+      --card: #1E1A12;
+      --text: #F5ECD7;
+      --muted: #A89878;
+      --accent: #D4A93C;
+      --accent-dark: #8C6A1C;
+      --border: #3A3122;
+      --on-accent: #1A1408;
+    }
+    /* Тема "Як у Telegram" заповнюється з JS кольорами самого Telegram */
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -70,7 +104,7 @@
     /* ===== Головна картка з сумою за місяць ===== */
     .main-card {
       background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-      color: #fff;
+      color: var(--on-accent);
       border-radius: 24px;
       padding: 22px;
       margin-bottom: 14px;
@@ -297,7 +331,7 @@
       font-size: 15px;
       font-weight: 700;
       background: var(--accent);
-      color: #fff;
+      color: var(--on-accent);
       cursor: pointer;
     }
     .btn-danger-text {
@@ -308,6 +342,64 @@
       font-size: 15px;
       padding: 12px 0 0;
       cursor: pointer;
+    }
+
+    /* ===== Екран налаштувань ===== */
+    .settings-hint { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+    .theme-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .theme-card {
+      border: 2px solid var(--border);
+      background: var(--card);
+      border-radius: 16px;
+      padding: 10px;
+      cursor: pointer;
+      text-align: left;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .theme-card.selected { border-color: var(--accent); }
+    /* Мініатюра теми: фон + смужка акцентного кольору */
+    .theme-preview {
+      height: 54px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border: 1px solid rgba(128, 128, 128, 0.2);
+    }
+    .theme-preview .line {
+      height: 8px;
+      width: 60%;
+      border-radius: 4px;
+    }
+    .theme-preview .dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      align-self: flex-end;
+    }
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row .soon-tag {
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 4px 8px;
     }
 
     /* ===== Нижнє меню ===== */
@@ -344,10 +436,10 @@
       border-radius: 50%;
       border: none;
       background: var(--accent);
-      color: #fff;
+      color: var(--on-accent);
       font-size: 30px;
       margin-top: -30px; /* піднімаємо кнопку над меню */
-      box-shadow: 0 6px 16px rgba(31, 169, 122, 0.4);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
       cursor: pointer;
     }
 
@@ -407,7 +499,7 @@
     .chip.selected {
       background: var(--accent);
       border-color: var(--accent);
-      color: #fff;
+      color: var(--on-accent);
     }
 
     .category-input {
@@ -441,7 +533,7 @@
       cursor: pointer;
     }
     .btn-secondary { background: var(--bg); color: var(--text); }
-    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary { background: var(--accent); color: var(--on-accent); }
     .btn-primary:disabled { opacity: 0.6; }
   </style>
 </head>
@@ -453,7 +545,7 @@
       <div class="hello" id="hello">Привіт!</div>
       <div class="title" id="screenTitle">Мої витрати</div>
     </div>
-    <div class="month-switch">
+    <div class="month-switch" id="monthSwitch">
       <button id="prevMonth">‹</button>
       <div class="month-label">
         <div class="m" id="monthName">—</div>
@@ -524,13 +616,28 @@
     </div>
   </div>
 
+  <!-- ===== ЕКРАН 4: Налаштування ===== -->
+  <div id="settingsScreen" hidden>
+    <div class="section">
+      <h2>🎨 Тема</h2>
+      <div class="settings-hint">Тема зберігається у твоєму Telegram — однакова на телефоні й на ПК</div>
+      <div class="theme-grid" id="themeGrid"></div>
+    </div>
+
+    <div class="section">
+      <h2>Інше</h2>
+      <div class="settings-row"><span>🏦 Підключити Монобанк</span><span class="soon-tag">скоро</span></div>
+      <div class="settings-row"><span>💰 Доходи</span><span class="soon-tag">скоро</span></div>
+    </div>
+  </div>
+
   <!-- Нижнє меню -->
   <nav class="nav">
     <button class="nav-item active" data-screen="home"><span class="icon">🏠</span>Головна</button>
     <button class="nav-item" data-screen="history"><span class="icon">📋</span>Історія</button>
     <button class="add-btn" id="addBtn">+</button>
     <button class="nav-item" data-screen="stats"><span class="icon">📊</span>Статистика</button>
-    <button class="nav-item" data-soon="Налаштування"><span class="icon">⚙️</span>Ще</button>
+    <button class="nav-item" data-screen="settings"><span class="icon">⚙️</span>Ще</button>
   </nav>
 
   <!-- Вікно додавання витрати -->
@@ -571,6 +678,99 @@
 
     // Адреса нашого API. Бот дописує її в посилання: ...github.io/expense-webapp/?api=https://...
     const API = new URLSearchParams(window.location.search).get("api");
+
+    // ===== Теми =====
+    // Список тем: id, назва і кольори для мініатюри (фон, рядок тексту, акцент)
+    const themes = [
+      { id: "green", name: "Зелена", preview: ["#F3F5F2", "#14211C", "#1FA97A"] },
+      { id: "dark", name: "Чорно-біла", preview: ["#0F0F10", "#F2F2F2", "#F2F2F2"] },
+      { id: "pink", name: "Рожева", preview: ["#FFF1F5", "#2B1420", "#E0457B"] },
+      { id: "gold", name: "Золота", preview: ["#12100B", "#F5ECD7", "#D4A93C"] },
+      { id: "telegram", name: "Як у Telegram", preview: null }, // кольори беремо з Telegram
+    ];
+    const THEME_KEY = "theme"; // назва ключа в сховищі
+    let currentTheme = "green";
+
+    // Кольори теми "Як у Telegram" — з налаштувань самого Telegram (themeParams)
+    function telegramColors() {
+      const p = tg.themeParams || {};
+      return {
+        bg: p.secondary_bg_color || "#F3F5F2",
+        card: p.section_bg_color || p.bg_color || "#FFFFFF",
+        text: p.text_color || "#14211C",
+        muted: p.hint_color || "#6B7A73",
+        accent: p.button_color || "#1FA97A",
+        onAccent: p.button_text_color || "#FFFFFF",
+      };
+    }
+
+    // Застосувати тему до сторінки
+    function applyTheme(id) {
+      if (!themes.some((t) => t.id === id)) id = "green"; // невідома тема -> зелена
+      currentTheme = id;
+      const root = document.documentElement; // це тег <html>
+
+      // Спочатку прибираємо кольори, які могла поставити тема Telegram
+      ["--bg", "--card", "--text", "--muted", "--accent", "--accent-dark", "--border", "--on-accent"]
+        .forEach((name) => root.style.removeProperty(name));
+
+      if (id === "telegram") {
+        root.removeAttribute("data-theme");
+        const c = telegramColors();
+        root.style.setProperty("--bg", c.bg);
+        root.style.setProperty("--card", c.card);
+        root.style.setProperty("--text", c.text);
+        root.style.setProperty("--muted", c.muted);
+        root.style.setProperty("--accent", c.accent);
+        root.style.setProperty("--accent-dark", c.accent);
+        root.style.setProperty("--border", "rgba(128, 128, 128, 0.25)");
+        root.style.setProperty("--on-accent", c.onAccent);
+      } else if (id === "green") {
+        root.removeAttribute("data-theme"); // зелена — це кольори з :root за замовчуванням
+      } else {
+        root.setAttribute("data-theme", id); // CSS сам підхопить [data-theme="..."]
+      }
+
+      // Фарбуємо шапку Telegram у колір фону, щоб усе виглядало єдиним цілим
+      try {
+        const bg = getComputedStyle(root).getPropertyValue("--bg").trim();
+        tg.setHeaderColor(bg);
+        tg.setBackgroundColor(bg);
+      } catch (e) {
+        // старі версії Telegram цього не вміють — не страшно
+      }
+    }
+
+    // Зберегти тему: у хмару Telegram (якщо підтримується) і в браузер як запасний варіант
+    function saveTheme(id) {
+      try { localStorage.setItem(THEME_KEY, id); } catch (e) {}
+      if (tg.isVersionAtLeast?.("6.9") && tg.CloudStorage) {
+        tg.CloudStorage.setItem(THEME_KEY, id, () => {});
+      }
+    }
+
+    // Завантажити тему: спершу швидко з браузера, потім уточнити з хмари Telegram
+    function loadTheme() {
+      let local = null;
+      try { local = localStorage.getItem(THEME_KEY); } catch (e) {}
+      applyTheme(local || "green");
+
+      if (tg.isVersionAtLeast?.("6.9") && tg.CloudStorage) {
+        tg.CloudStorage.getItem(THEME_KEY, (err, value) => {
+          if (!err && value && value !== currentTheme) {
+            applyTheme(value);
+            if (activeScreen === "settings") renderSettings();
+          }
+        });
+      }
+    }
+
+    // Якщо користувач змінив тему самого Telegram, а в нас вибрано "Як у Telegram" — оновлюємось
+    tg.onEvent?.("themeChanged", () => {
+      if (currentTheme === "telegram") applyTheme("telegram");
+    });
+
+    loadTheme();
 
     const user = tg.initDataUnsafe?.user;
     if (user?.first_name) {
@@ -617,6 +817,15 @@
     // Гроші у форматі "1 234,50 ₴"
     function money(value) {
       return value.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₴";
+    }
+
+    // Правильне слово для кількості днів: 1 день, 3 дні, 5 днів, 21 день, 12 днів
+    function daysWord(n) {
+      const lastTwo = n % 100;
+      const last = n % 10;
+      if (last === 1 && lastTwo !== 11) return "день";
+      if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return "дні";
+      return "днів";
     }
 
     // Коротка сума для графіків: 850 -> "850", 1250 -> "1,3 тис"
@@ -756,7 +965,10 @@
         const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         const daysLeft = daysInMonth - now.getDate() + 1; // разом із сьогоднішнім днем
         const perDay = remaining / daysLeft;
-        note.textContent = `Залишилось ${money(remaining)} — можна ~${money(perDay)} на день`;
+        const monthName = monthsGenitive[now.getMonth()]; // "жовтня"
+        note.textContent =
+          `Залишилось ${money(remaining)} до кінця ${monthName} ` +
+          `(${daysLeft} ${daysWord(daysLeft)}) — це ~${money(perDay)} на день`;
       } else {
         // Минулий або майбутній місяць: денна підказка не має сенсу
         note.textContent = `Використано ${Math.round(percent)}% бюджету`;
@@ -1154,14 +1366,55 @@
       }
     }
 
+    // ===== ЕКРАН 4: Налаштування =====
+    function renderSettings() {
+      const grid = document.getElementById("themeGrid");
+      grid.innerHTML = "";
+
+      themes.forEach((theme) => {
+        const card = document.createElement("button");
+        card.className = "theme-card";
+        if (theme.id === currentTheme) card.classList.add("selected");
+
+        // Мініатюра: фон, "рядок тексту" і кружечок акцентного кольору
+        const colors = theme.preview || (() => {
+          const c = telegramColors();
+          return [c.bg, c.text, c.accent];
+        })();
+        const preview = document.createElement("div");
+        preview.className = "theme-preview";
+        preview.style.background = colors[0];
+        const line = document.createElement("div");
+        line.className = "line";
+        line.style.background = colors[1];
+        const dot = document.createElement("div");
+        dot.className = "dot";
+        dot.style.background = colors[2];
+        preview.append(line, dot);
+
+        const name = document.createElement("div");
+        name.textContent = (theme.id === currentTheme ? "✓ " : "") + theme.name;
+
+        card.append(preview, name);
+        card.onclick = () => {
+          applyTheme(theme.id);
+          saveTheme(theme.id);
+          tg.HapticFeedback?.selectionChanged();
+          renderSettings(); // перемальовуємо, щоб галочка переїхала
+        };
+        grid.appendChild(card);
+      });
+    }
+
     // ===== Перемикання екранів =====
     let activeScreen = "home";
-    const screenTitles = { home: "Мої витрати", history: "Історія", stats: "Статистика" };
+    const screenTitles = { home: "Мої витрати", history: "Історія", stats: "Статистика", settings: "Налаштування" };
 
     function reloadActiveScreen() {
       if (activeScreen === "home") loadSummary();
       else if (activeScreen === "history") loadHistory();
       else if (activeScreen === "stats") loadStats();
+      else if (activeScreen === "settings") renderSettings();
     }
 
     function showScreen(name) {
@@ -1169,6 +1422,8 @@
       document.getElementById("homeScreen").hidden = name !== "home";
       document.getElementById("historyScreen").hidden = name !== "history";
       document.getElementById("statsScreen").hidden = name !== "stats";
+      document.getElementById("settingsScreen").hidden = name !== "settings";
+      document.getElementById("monthSwitch").hidden = name === "settings"; // місяць у налаштуваннях не потрібен
       document.getElementById("screenTitle").textContent = screenTitles[name];
 
       document.querySelectorAll("[data-screen]").forEach((btn) => {
