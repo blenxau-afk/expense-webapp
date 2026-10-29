@@ -55,6 +55,66 @@
       --border: #3A3122;
       --on-accent: #1A1408;
     }
+    :root[data-theme="light-mono"] {
+      --bg: #F4F4F5;
+      --card: #FFFFFF;
+      --text: #111111;
+      --muted: #6E6E73;
+      --accent: #111111;
+      --accent-dark: #3A3A3C;
+      --border: #E3E3E6;
+      --on-accent: #FFFFFF;
+    }
+    :root[data-theme="ocean"] {
+      --bg: #0E2233;
+      --card: #16324A;
+      --text: #EAF2F8;
+      --muted: #8FA9BF;
+      --accent: #F2B38F;
+      --accent-dark: #C98863;
+      --border: #23455F;
+      --on-accent: #1A1410;
+    }
+    :root[data-theme="forest"] {
+      --bg: #121C15;
+      --card: #1B2A1F;
+      --text: #EEF2E6;
+      --muted: #93A38F;
+      --accent: #E6CF7A;
+      --accent-dark: #B39B46;
+      --border: #2A3B2E;
+      --on-accent: #1A1608;
+    }
+    :root[data-theme="violet"] {
+      --bg: #2A2443;
+      --card: #383059;
+      --text: #F2EEFA;
+      --muted: #A9A1C4;
+      --accent: #EAC48F;
+      --accent-dark: #B8925E;
+      --border: #4A4170;
+      --on-accent: #221A10;
+    }
+    :root[data-theme="graphite"] {
+      --bg: #17181A;
+      --card: #222427;
+      --text: #F0F2F1;
+      --muted: #9AA09D;
+      --accent: #8FE0B8;
+      --accent-dark: #4FA882;
+      --border: #303337;
+      --on-accent: #0F1A14;
+    }
+    :root[data-theme="berry"] {
+      --bg: #2A1220;
+      --card: #3A1A2C;
+      --text: #FBEFF4;
+      --muted: #C29AAE;
+      --accent: #F07AA8;
+      --accent-dark: #B84677;
+      --border: #4E2439;
+      --on-accent: #2A0F1C;
+    }
     /* Тема "Як у Telegram" заповнюється з JS кольорами самого Telegram */
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -348,7 +408,7 @@
     .settings-hint { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
     .theme-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 10px;
     }
     .theme-card {
@@ -359,13 +419,13 @@
       cursor: pointer;
       text-align: left;
       color: var(--text);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
     }
     .theme-card.selected { border-color: var(--accent); }
     /* Мініатюра теми: фон + смужка акцентного кольору */
     .theme-preview {
-      height: 54px;
+      height: 44px;
       border-radius: 10px;
       margin-bottom: 8px;
       padding: 8px;
@@ -686,6 +746,12 @@
       { id: "dark", name: "Чорно-біла", preview: ["#0F0F10", "#F2F2F2", "#F2F2F2"] },
       { id: "pink", name: "Рожева", preview: ["#FFF1F5", "#2B1420", "#E0457B"] },
       { id: "gold", name: "Золота", preview: ["#12100B", "#F5ECD7", "#D4A93C"] },
+      { id: "light-mono", name: "Біло-чорна", preview: ["#F4F4F5", "#111111", "#111111"] },
+      { id: "ocean", name: "Океан", preview: ["#0E2233", "#EAF2F8", "#F2B38F"] },
+      { id: "forest", name: "Ліс", preview: ["#121C15", "#EEF2E6", "#E6CF7A"] },
+      { id: "violet", name: "Фіолетова", preview: ["#2A2443", "#F2EEFA", "#EAC48F"] },
+      { id: "graphite", name: "Графіт", preview: ["#17181A", "#F0F2F1", "#8FE0B8"] },
+      { id: "berry", name: "Ягідна", preview: ["#2A1220", "#FBEFF4", "#F07AA8"] },
       { id: "telegram", name: "Як у Telegram", preview: null }, // кольори беремо з Telegram
     ];
     const THEME_KEY = "theme"; // назва ключа в сховищі
