@@ -478,6 +478,25 @@
       font-size: 15px;
     }
     .settings-row:last-child { border-bottom: none; }
+    /* Монобанк у налаштуваннях */
+    .mono-steps { font-size: 14px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; padding-left: 18px; }
+    .mono-steps b { color: var(--text); }
+    .mono-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.4; }
+    .mono-connected { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .mono-accounts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .mono-account {
+      border: 2px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 15px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .mono-account.selected { border-color: var(--accent); }
+    .mono-error { font-size: 14px; color: var(--danger); min-height: 18px; margin: 6px 0; }
+
     .settings-row .soon-tag {
       font-size: 12px;
       color: var(--muted);
@@ -709,8 +728,8 @@
     </div>
 
     <div class="section">
-      <h2>Інше</h2>
-      <div class="settings-row"><span>🏦 Підключити Монобанк</span><span class="soon-tag">скоро</span></div>
+      <h2>🏦 Монобанк</h2>
+      <div id="monoBox"><div class="empty">Завантаження…</div></div>
     </div>
   </div>
 
@@ -1512,6 +1531,141 @@
       });
     }
 
+    // ===== Монобанк у налаштуваннях =====
+    const monoBox = document.getElementById("monoBox");
+
+    // POST-запит до API: повертає дані або кидає помилку з текстом
+    async function apiPost(path, payload) {
+      let response;
+      try {
+        response = await fetch(`${API}${path}`, {
+          method: "POST",
+          body: JSON.stringify({ initData: tg.initData, ...payload }),
+        });
+      } catch (e) {
+        throw new Error("Сервер недоступний. Спробуй ще раз за хвилину");
+      }
+      let data = {};
+      try { data = await response.json(); } catch (e) {}
+      if (!response.ok) throw new Error(data.error || "Помилка сервера");
+      return data;
+    }
+
+    // Невеликий помічник: створити елемент з класом і текстом
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text) node.textContent = text;
+      return node;
+    }
+
+    async function loadMonoStatus() {
+      if (!apiAvailable()) {
+        monoBox.innerHTML = '<div class="empty">Відкрий апку через кнопку в боті</div>';
+        return;
+      }
+      try {
+        const data = await apiGet("/api/mono/status");
+        if (data.connected) renderMonoConnected(data.label);
+        else renderMonoStart();
+      } catch (e) {
+        monoBox.innerHTML = "";
+        monoBox.appendChild(el("div", "error", e.message));
+      }
+    }
+
+    // Стан "підключено"
+    function renderMonoConnected(label) {
+      monoBox.innerHTML = "";
+      monoBox.appendChild(el("div", "mono-connected", `✅ Підключено: ${label}`));
+      monoBox.appendChild(el("div", "mono-note", "Оплати цією карткою з'являються в історії самі, за кілька секунд."));
+      const btn = el("button", "btn-danger-text", "Відключити Монобанк");
+      btn.onclick = async () => {
+        if (!(await askConfirm("Відключити Монобанк? Нові оплати перестануть з'являтися."))) return;
+        btn.disabled = true;
+        try {
+          await apiPost("/api/mono/disconnect", {});
+          renderMonoStart();
+        } catch (e) {
+          notify(e.message);
+          btn.disabled = false;
+        }
+      };
+      monoBox.appendChild(btn);
+    }
+
+    // Крок 1: інструкція і поле для токена
+    function renderMonoStart() {
+      monoBox.innerHTML = "";
+      const steps = el("ol", "mono-steps");
+      steps.innerHTML =
+        "<li>На комп'ютері відкрий <b>api.monobank.ua</b></li>" +
+        "<li>Відскануй QR <b>камерою телефона</b> і підтверди в застосунку Монобанку</li>" +
+        "<li>Скопіюй токен зі сторінки і встав нижче</li>";
+      const input = el("input", "category-input");
+      input.type = "password";            // токен не видно на екрані
+      input.placeholder = "Токен Монобанку";
+      input.autocomplete = "off";
+      const error = el("div", "mono-error");
+      const btn = el("button", "budget-set-btn", "Далі");
+      btn.onclick = async () => {
+        const token = input.value.trim();
+        if (!token) { error.textContent = "Встав токен"; return; }
+        btn.disabled = true;
+        btn.textContent = "Перевіряю…";
+        error.textContent = "";
+        try {
+          const data = await apiPost("/api/mono/accounts", { token });
+          renderMonoAccounts(token, data.accounts);
+        } catch (e) {
+          error.textContent = e.message;
+          btn.disabled = false;
+          btn.textContent = "Далі";
+        }
+      };
+      const note = el("div", "mono-note",
+        "Токен дає доступ тільки до перегляду виписки, списувати гроші з ним неможливо. " +
+        "Ми використовуємо його один раз для підключення і не зберігаємо. Відкликати доступ можна на api.monobank.ua.");
+      monoBox.append(steps, input, error, btn, note);
+    }
+
+    // Крок 2: вибір картки
+    function renderMonoAccounts(token, accounts) {
+      monoBox.innerHTML = "";
+      monoBox.appendChild(el("div", "mono-note", "Вибери картку, оплати з якої записувати:"));
+      const list = el("div", "mono-accounts");
+      let selected = accounts[0];
+      accounts.forEach((acc, index) => {
+        const card = el("button", "mono-account" + (index === 0 ? " selected" : ""), acc.label);
+        card.onclick = () => {
+          selected = acc;
+          list.querySelectorAll(".mono-account").forEach((c) => c.classList.remove("selected"));
+          card.classList.add("selected");
+        };
+        list.appendChild(card);
+      });
+      const error = el("div", "mono-error");
+      const btn = el("button", "budget-set-btn", "Підключити");
+      btn.onclick = async () => {
+        btn.disabled = true;
+        btn.textContent = "Підключаю…";
+        error.textContent = "";
+        try {
+          const data = await apiPost("/api/mono/connect", { token, account: selected.id, label: selected.label });
+          tg.HapticFeedback?.notificationOccurred("success");
+          renderMonoConnected(data.label);
+        } catch (e) {
+          error.textContent = e.message;
+          btn.disabled = false;
+          btn.textContent = "Підключити";
+        }
+      };
+      const back = el("button", "btn-danger-text", "Назад");
+      back.style.color = "var(--muted)";
+      back.onclick = renderMonoStart;
+      monoBox.append(list, error, btn, back);
+    }
+
     // ===== Перемикання екранів =====
     let activeScreen = "home";
     const screenTitles = { home: "Мої витрати", history: "Історія", stats: "Статистика", settings: "Налаштування" };
@@ -1520,7 +1674,7 @@
       if (activeScreen === "home") loadSummary();
       else if (activeScreen === "history") loadHistory();
       else if (activeScreen === "stats") loadStats();
-      else if (activeScreen === "settings") renderSettings();
+      else if (activeScreen === "settings") { renderSettings(); loadMonoStatus(); }
     }
 
     function showScreen(name) {
