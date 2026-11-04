@@ -21,6 +21,7 @@
       --border: #E3E8E4;
       --danger: #D9534F;      /* червоний для помилок */
       --warning: #E8A33D;     /* помаранчевий: бюджет майже вичерпано */
+      --income: #2FB57C;      /* зелений для доходів */
       --on-accent: #FFFFFF;   /* колір тексту на кнопках і зеленій картці */
     }
 
@@ -215,6 +216,29 @@
     .item .date { font-size: 12px; color: var(--muted); margin-top: 2px; }
     .item .right { display: flex; align-items: center; }
     .item .sum { font-weight: 700; font-size: 15px; white-space: nowrap; }
+    .item .sum.income, .income-text { color: var(--income); }
+    .negative { color: var(--danger); }
+
+    /* Перемикач "Витрата / Дохід" у вікні додавання */
+    .type-switch {
+      display: flex;
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 12px;
+    }
+    .type-switch button {
+      flex: 1;
+      border: none;
+      background: none;
+      border-radius: 9px;
+      padding: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .type-switch button.active { background: var(--card); color: var(--text); }
 
     /* Кнопка видалення в історії */
     .del-btn {
@@ -629,8 +653,8 @@
     <div class="grid">
       <div class="stat"><div class="label">Сьогодні</div><div class="value" id="today">…</div></div>
       <div class="stat"><div class="label">В середньому / день</div><div class="value" id="avg">…</div></div>
-      <div class="stat"><div class="label">Доходи</div><div class="soon">скоро</div></div>
-      <div class="stat"><div class="label">Залишок</div><div class="soon">скоро</div></div>
+      <div class="stat"><div class="label">Доходи</div><div class="value income-text" id="income">…</div></div>
+      <div class="stat"><div class="label">Залишок</div><div class="value" id="balance">…</div></div>
     </div>
 
     <div class="section">
@@ -643,7 +667,7 @@
   <div id="historyScreen" hidden>
     <div class="section">
       <div class="history-total">
-        <span class="label">Всього за місяць</span>
+        <span class="label">Витрачено за місяць</span>
         <span class="value" id="historyTotal">…</span>
       </div>
       <div id="historyList"><div class="empty">Завантаження…</div></div>
@@ -687,7 +711,6 @@
     <div class="section">
       <h2>Інше</h2>
       <div class="settings-row"><span>🏦 Підключити Монобанк</span><span class="soon-tag">скоро</span></div>
-      <div class="settings-row"><span>💰 Доходи</span><span class="soon-tag">скоро</span></div>
     </div>
   </div>
 
@@ -704,7 +727,10 @@
   <div class="sheet-backdrop" id="sheetBackdrop" hidden>
     <div class="sheet">
       <div class="sheet-handle"></div>
-      <h3>Нова витрата</h3>
+      <div class="type-switch">
+        <button id="typeExpense" class="active">Витрата</button>
+        <button id="typeIncome">Дохід</button>
+      </div>
       <input class="amount-input" id="amountInput" type="text" inputmode="decimal" placeholder="0,00 ₴" autocomplete="off">
       <div class="chips" id="chips"></div>
       <input class="category-input" id="categoryInput" type="text" maxlength="30" placeholder="Або своя категорія" autocomplete="off">
@@ -939,7 +965,7 @@
       try {
         response = await fetch(url);
       } catch (e) {
-        throw new Error("Сервер недоступний. Перевір, чи запущені API і тунель");
+        throw new Error("Сервер недоступний. Спробуй ще раз за хвилину");
       }
       let data;
       try {
@@ -1079,7 +1105,7 @@
         closeBudgetSheet();
         loadSummary(); // перемальовуємо головну з новим бюджетом
       } catch (e) {
-        budgetError.textContent = "Сервер недоступний. Перевір API і тунель";
+        budgetError.textContent = "Сервер недоступний. Спробуй ще раз за хвилину";
       } finally {
         budgetSaveBtn.disabled = false;
       }
@@ -1110,6 +1136,8 @@
       document.getElementById("total").textContent = "—";
       document.getElementById("today").textContent = "—";
       document.getElementById("avg").textContent = "—";
+      document.getElementById("income").textContent = "—";
+      document.getElementById("balance").textContent = "—";
       document.getElementById("hint").textContent = text;
       showErrorIn("lastList", text);
     }
@@ -1157,6 +1185,11 @@
         document.getElementById("total").textContent = money(data.total);
         document.getElementById("today").textContent = money(data.today);
         document.getElementById("avg").textContent = money(data.avg_per_day);
+        document.getElementById("income").textContent = money(data.income ?? 0);
+        const balanceEl = document.getElementById("balance");
+        const balance = data.balance ?? 0;
+        balanceEl.textContent = (balance < 0 ? "−" : "") + money(Math.abs(balance));
+        balanceEl.classList.toggle("negative", balance < 0); // мінус — червоним
         document.getElementById("hint").textContent = "Дані з твого бота";
         renderBudget(data.total, data.budget ?? null); // ?? null — якщо сервер не надіслав budget
         renderLast(data.last);
@@ -1171,11 +1204,13 @@
       const list = document.getElementById("historyList");
       list.innerHTML = "";
 
-      const monthTotal = items.reduce((acc, item) => acc + item.amount, 0);
+      // Рахуємо тільки витрати; доходи показуємо в списку, але в суму не додаємо
+      const isExpense = (item) => item.type !== "income";
+      const monthTotal = items.filter(isExpense).reduce((acc, item) => acc + item.amount, 0);
       document.getElementById("historyTotal").textContent = money(monthTotal);
 
       if (items.length === 0) {
-        list.innerHTML = '<div class="empty" style="margin-top:10px">У цьому місяці витрат немає.</div>';
+        list.innerHTML = '<div class="empty" style="margin-top:10px">У цьому місяці записів немає.</div>';
         return;
       }
 
@@ -1188,14 +1223,14 @@
 
       Object.keys(groups).forEach((day) => {
         const dayItems = groups[day];
-        const dayTotal = dayItems.reduce((acc, item) => acc + item.amount, 0);
+        const dayTotal = dayItems.filter(isExpense).reduce((acc, item) => acc + item.amount, 0);
 
         const header = document.createElement("div");
         header.className = "day-header";
         const title = document.createElement("span");
         title.textContent = dayTitle(day);
         const total = document.createElement("span");
-        total.textContent = money(dayTotal);
+        total.textContent = dayTotal > 0 ? "−" + money(dayTotal) : "";
         header.append(title, total);
         list.appendChild(header);
 
@@ -1215,8 +1250,13 @@
           const right = document.createElement("div");
           right.className = "right";
           const sum = document.createElement("div");
-          sum.className = "sum";
-          sum.textContent = "−" + money(item.amount);
+          if (item.type === "income") {
+            sum.className = "sum income";
+            sum.textContent = "+" + money(item.amount);
+          } else {
+            sum.className = "sum";
+            sum.textContent = "−" + money(item.amount);
+          }
 
           const del = document.createElement("button");
           del.className = "del-btn";
@@ -1253,7 +1293,7 @@
       try {
         const response = await fetch(`${API}/api/expenses/delete`, {
           method: "POST",
-          body: JSON.stringify({ initData: tg.initData, id: item.id }),
+          body: JSON.stringify({ initData: tg.initData, id: item.id, type: item.type }),
         });
         const data = await response.json();
 
@@ -1266,7 +1306,7 @@
         tg.HapticFeedback?.notificationOccurred("success");
         loadHistory();
       } catch (e) {
-        notify("Сервер недоступний. Перевір API і тунель");
+        notify("Сервер недоступний. Спробуй ще раз за хвилину");
         button.disabled = false;
       }
     }
@@ -1532,7 +1572,9 @@
     const saveBtn = document.getElementById("saveBtn");
     const chipsBox = document.getElementById("chips");
 
-    const presetCategories = ["їжа", "кава", "транспорт", "покупки", "розваги", "інше"];
+    const expenseCategories = ["їжа", "кава", "транспорт", "авто", "покупки", "розваги", "інше"];
+    const incomeSources = ["зарплата", "підробіток", "подарунок", "інше"];
+    let entryType = "expense"; // що зараз додаємо: "expense" або "income"
 
     function highlightChips() {
       const value = categoryInput.value.trim().toLowerCase();
@@ -1541,17 +1583,37 @@
       });
     }
 
-    presetCategories.forEach((name) => {
-      const chip = document.createElement("button");
-      chip.className = "chip";
-      chip.textContent = name;
-      chip.onclick = () => {
-        categoryInput.value = name;
-        highlightChips();
-      };
-      chipsBox.appendChild(chip);
-    });
+    // Намалювати кнопки категорій для поточного типу
+    function renderChips() {
+      chipsBox.innerHTML = "";
+      const names = entryType === "income" ? incomeSources : expenseCategories;
+      names.forEach((name) => {
+        const chip = document.createElement("button");
+        chip.className = "chip";
+        chip.textContent = name;
+        chip.onclick = () => {
+          categoryInput.value = name;
+          highlightChips();
+        };
+        chipsBox.appendChild(chip);
+      });
+      highlightChips();
+    }
+
+    // Перемкнути "Витрата / Дохід"
+    function setEntryType(type) {
+      entryType = type;
+      document.getElementById("typeExpense").classList.toggle("active", type === "expense");
+      document.getElementById("typeIncome").classList.toggle("active", type === "income");
+      categoryInput.placeholder = type === "income" ? "Або своє джерело" : "Або своя категорія";
+      categoryInput.value = "";
+      renderChips();
+    }
+
+    document.getElementById("typeExpense").onclick = () => setEntryType("expense");
+    document.getElementById("typeIncome").onclick = () => setEntryType("income");
     categoryInput.oninput = highlightChips;
+    renderChips();
 
     function openSheet() {
       if (!apiAvailable()) {
@@ -1559,9 +1621,8 @@
         return;
       }
       amountInput.value = "";
-      categoryInput.value = "";
+      setEntryType("expense"); // за замовчуванням — витрата
       sheetError.textContent = "";
-      highlightChips();
       sheetBackdrop.hidden = false;
       amountInput.focus();
     }
@@ -1576,14 +1637,16 @@
         sheetError.textContent = "Введи суму більше нуля";
         return;
       }
-      const category = categoryInput.value.trim() || "інше";
+      const isIncome = entryType === "income";
+      const category = categoryInput.value.trim() || (isIncome ? "дохід" : "інше");
 
       saveBtn.disabled = true;
       saveBtn.textContent = "Збереження…";
       sheetError.textContent = "";
 
       try {
-        const response = await fetch(`${API}/api/expenses`, {
+        // Дохід і витрата йдуть на різні адреси API
+        const response = await fetch(`${API}${isIncome ? "/api/incomes" : "/api/expenses"}`, {
           method: "POST",
           body: JSON.stringify({ initData: tg.initData, amount: amount, category: category }),
         });
@@ -1602,7 +1665,7 @@
         renderMonth();
         reloadActiveScreen();
       } catch (e) {
-        sheetError.textContent = "Сервер недоступний. Перевір API і тунель";
+        sheetError.textContent = "Сервер недоступний. Спробуй ще раз за хвилину";
       } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = "Зберегти";
